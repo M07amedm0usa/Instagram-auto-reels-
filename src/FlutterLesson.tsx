@@ -251,8 +251,9 @@ const sIntro: React.CSSProperties = {
 
 const sCode: React.CSSProperties = {
   ...sceneBase,
-  padding: 20,
-  gap:     16,
+  padding:        '120px 40px 120px 40px',
+  gap:            24,
+  justifyContent: 'center',
 };
 
 const sOutro: React.CSSProperties = {
@@ -273,7 +274,7 @@ const codeSection: React.CSSProperties = {
 
 const codeLabel: React.CSSProperties = {
   color:         '#00d4ff',
-  fontSize:      16,
+  fontSize:      28,
   fontFamily:    "'JetBrains Mono', monospace",
   letterSpacing: '.15em',
   fontWeight:    600,

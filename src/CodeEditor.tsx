@@ -139,8 +139,9 @@ function computeStateAtMs(script: StepType[], initialOutput: OutputState, elapse
   return { rawCode, cursorIdx, output, callouts };
 }
 
-// ─── LINE HEIGHT CONSTANT (matches CSS font-size 10.5 × line-height 2.2) ──────
-const LINE_HEIGHT_PX = 10.5 * 2.2; // 23.1 px
+// ─── LINE HEIGHT CONSTANT (matches CSS font-size 22 × line-height 1.9) ──────
+const FONT_SIZE_PX   = 22;
+const LINE_HEIGHT_PX = FONT_SIZE_PX * 1.9; // 41.8 px
 
 // ─── PROPS ────────────────────────────────────────────────────────────────────
 interface CodeEditorProps {
@@ -169,7 +170,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({ lesson, startFrame }) =>
   let highlighted = highlight(withCursor);
   highlighted = highlighted.replace(
     '%%CURSOR%%',
-    `<span style="display:inline-block;width:2px;height:14px;background:${CSS_VARS.accent};` +
+    `<span style="display:inline-block;width:3px;height:26px;background:${CSS_VARS.accent};` +
     `vertical-align:middle;margin-bottom:-2px;box-shadow:0 0 6px ${CSS_VARS.accent};` +
     // Remotion renders a single frame snapshot, so we keep the cursor always visible
     `opacity:${Math.floor(elapsedMs / 500) % 2 === 0 ? 1 : 0.15};"></span>`,
@@ -249,33 +250,33 @@ const editorWin: React.CSSProperties = {
 
 const chromBar: React.CSSProperties = {
   background:    'linear-gradient(90deg, #1a1e26, #161b22)',
-  padding:       '6px 10px',
+  padding:       '14px 20px',
   display:       'flex',
   alignItems:    'center',
-  gap:           6,
+  gap:           12,
   borderBottom:  `1px solid ${CSS_VARS.border2}`,
 };
 
 const dot: React.CSSProperties = {
-  width:        8,
-  height:       8,
+  width:        16,
+  height:       16,
   borderRadius: '50%',
   boxShadow:    '0 1px 3px rgba(0,0,0,.3)',
 };
 
 const ewBody: React.CSSProperties = {
   background:  CSS_VARS.surface2,
-  padding:     '12px 16px',
+  padding:     '24px 32px',
   overflow:    'hidden',
   flex:        1,
   direction:   'ltr',
-  fontSize:    10.5,
+  fontSize:    FONT_SIZE_PX,
   position:    'relative',
 };
 
 const codeLine =
-  `font-family:'JetBrains Mono',monospace;line-height:2.2;letter-spacing:.01em;` +
-  `color:${CSS_VARS.text};white-space:pre-wrap;display:block;min-height:2.2em;position:relative;`;
+  `font-family:'JetBrains Mono',monospace;font-size:${FONT_SIZE_PX}px;line-height:1.9;letter-spacing:.01em;` +
+  `color:${CSS_VARS.text};white-space:pre-wrap;display:block;min-height:${LINE_HEIGHT_PX}px;position:relative;`;
 
 const calloutsLayer: React.CSSProperties = {
   position:      'absolute',
@@ -292,10 +293,10 @@ const calloutChip: React.CSSProperties = {
   right:        0,
   background:   `linear-gradient(135deg, ${CSS_VARS.accentWarm}, #f87316)`,
   color:        '#0a0e14',
-  fontSize:     7.5,
+  fontSize:     16,
   fontWeight:   800,
-  padding:      '3px 10px',
-  borderRadius: 16,
+  padding:      '6px 20px',
+  borderRadius: 32,
   whiteSpace:   'nowrap',
   boxShadow:    '0 4px 12px rgba(245,158,11,.35)',
   fontFamily:   "'Cairo', sans-serif",
@@ -304,19 +305,19 @@ const calloutChip: React.CSSProperties = {
 };
 
 const previewWrap: React.CSSProperties = {
-  borderRadius: 10,
+  borderRadius: 16,
   border:       `1px solid ${CSS_VARS.border2}`,
   background:   'linear-gradient(135deg, rgba(124,58,237,.15), rgba(0,212,255,.08))',
   display:      'flex',
   flexDirection:'column',
-  gap:          6,
-  padding:      10,
+  gap:          10,
+  padding:      20,
   boxShadow:    '0 8px 24px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.05)',
 };
 
 const previewLabel: React.CSSProperties = {
   color:         CSS_VARS.accent,
-  fontSize:      8,
+  fontSize:      16,
   fontFamily:    "'JetBrains Mono', monospace",
   letterSpacing: '.15em',
   fontWeight:    600,
