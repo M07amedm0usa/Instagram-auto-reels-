@@ -1,12 +1,21 @@
 name: Render Flutter Reel
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Triggers:
+#   • Manual dispatch — paste a LessonData JSON string in the UI.
+#   • Repository dispatch — n8n calls POST /repos/{owner}/{repo}/dispatches
+#     with { "event_type": "render", "client_payload": { "lesson": {...} } }
+# ─────────────────────────────────────────────────────────────────────────────
 on:
   workflow_dispatch:
     inputs:
       lesson_json:
-        description: 'LessonData JSON string'
+        description: 'Full LessonData JSON (the value of the "lesson" key)'
         required: true
-        default: ''
+        default: '{}'
+
+  repository_dispatch:
+    types: [render]
 
 jobs:
   render:
@@ -14,39 +23,61 @@ jobs:
     timeout-minutes: 30
 
     steps:
+      # ── 1. Checkout ──────────────────────────────────────────────────────
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      # ── 2. Node ──────────────────────────────────────────────────────────
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          
+          cache: 'npm'
 
+      # ── 3. Install deps ──────────────────────────────────────────────────
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
+      # ── 4. Chrome ────────────────────────────────────────────────────────
       - name: Install Chrome for Remotion
         run: npx remotion browser ensure
 
-      - name: Write props file
-        run: echo '${{ inputs.lesson_json }}' > /tmp/props.json
+      # ── 5. Build props JSON ──────────────────────────────────────────────
+      # Supports both manual dispatch (lesson_json input) and
+      # repository_dispatch (client_payload.lesson).
+      # The props file must be { "lesson": { ... } } so Remotion's
+      # calculateMetadata receives props.lesson correctly.
+      - name: Build props file
+        env:
+          # For workflow_dispatch: the raw lesson JSON string
+          LESSON_MANUAL: ${{ github.event.inputs.lesson_json }}
+          # For repository_dispatch: the lesson object (already parsed by GitHub)
+          LESSON_DISPATCH: ${{ toJson(github.event.client_payload.lesson) }}
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            # client_payload.lesson is already a JSON object
+            echo "{\"lesson\": $LESSON_DISPATCH}" > /tmp/props.json
+          else
+            # workflow_dispatch: lesson_json is a raw JSON string of the lesson object
+            echo "{\"lesson\": $LESSON_MANUAL}" > /tmp/props.json
+          fi
+          echo "── props.json contents ──"
+          cat /tmp/props.json
 
+      # ── 6. Render ────────────────────────────────────────────────────────
       - name: Render video
         run: |
+          mkdir -p out
           npx remotion render FlutterLesson out/reel.mp4 \
             --props=/tmp/props.json \
+            --gl=swiftshader \
             --concurrency=2 \
             --log=verbose
-      # الطريقة الآمنة لحفظ الـ JSON بدون ما اللينكس يقرأه كأوامر
-      - name: Save Props to File
-        env:
-          PROPS_JSON: ${{ toJson(github.event.client_payload.props || github.event.inputs.props || '{}') }}
-        run: echo "$PROPS_JSON" > props.json
-        
-      - name: Upload artifact
+
+      # ── 7. Upload artifact ───────────────────────────────────────────────
+      - name: Upload rendered video
         uses: actions/upload-artifact@v4
         with:
           name: flutter-reel-${{ github.run_id }}
           path: out/reel.mp4
-          retention-days: 3
+          retention-days: 7
