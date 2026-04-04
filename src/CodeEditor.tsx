@@ -218,13 +218,15 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({ lesson, startFrame }) =>
         <div style={previewBox}>
           <span
             style={{
-              fontFamily: "'Cairo', sans-serif",
-              fontSize:   output.fs * 2,   // ضعف الحجم — 16→32, 24→48
-              fontWeight: output.fw,
-              color:      output.color,
-              letterSpacing: output.ls + 'em',
-              direction:  'rtl',
-              textAlign:  'center',
+              fontFamily:    "'Cairo', sans-serif",
+              fontSize:      output.fs * 2,
+              fontWeight:    output.fw,
+              color:         output.color,
+              // letterSpacing على العربي بيكسر الحروف — بنضرب في 0 عشان نلغيه
+              letterSpacing: 0,
+              direction:     'rtl',
+              textAlign:     'center',
+              wordSpacing:   output.ls * 8 + 'px', // نعوض بـ wordSpacing بدل letterSpacing
             }}
           >
             {output.text || ''}

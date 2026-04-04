@@ -251,9 +251,9 @@ const sIntro: React.CSSProperties = {
 
 const sCode: React.CSSProperties = {
   ...sceneBase,
-  padding:        '100px 40px 100px 40px',
+  padding:        '60px 40px 100px 40px',
   gap:            24,
-  justifyContent: 'center',   // يبدأ من النص ويتمدد لفوق ولتحت
+  justifyContent: 'center',
   alignItems:     'stretch',
 };
 
