@@ -1,0 +1,47 @@
+name: Render Flutter Reel
+
+on:
+  workflow_dispatch:
+    inputs:
+      lesson_json:
+        description: 'LessonData JSON string'
+        required: true
+        default: ''
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chrome for Remotion
+        run: npx remotion browser ensure
+
+      - name: Write props file
+        run: echo '${{ inputs.lesson_json }}' > /tmp/props.json
+
+      - name: Render video
+        run: |
+          npx remotion render FlutterLesson out/reel.mp4 \
+            --props=/tmp/props.json \
+            --concurrency=2 \
+            --log=verbose
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-reel-${{ github.run_id }}
+          path: out/reel.mp4
+          retention-days: 3
