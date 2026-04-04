@@ -1,13 +1,16 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// CodeEditor.tsx — Remotion Typing Engine  v2
-// Frame-driven only — NO setTimeout / setInterval / requestAnimationFrame.
-// Supports two output preview modes:
-//   • 'text'   — shows Arabic/English text (Text widget)
-//   • 'visual' — shows a colored box with border-radius (Container widget)
+// CodeEditor.tsx — Remotion Typing Engine  v3
+//
+// Changes from v2:
+//   • Uses stepDurationMs() from lessonData.ts (single source of truth).
+//   • Preview driven by PreviewRenderer — no widget-specific branches here.
+//   • Added 'delete' step support.
+//   • computeStateAtMs is pure — no side effects, fully deterministic.
 // ─────────────────────────────────────────────────────────────────────────────
 import React from 'react';
 import { useCurrentFrame, useVideoConfig } from 'remotion';
-import { LessonData, OutputState, StepType } from './lessonData';
+import { LessonData, PreviewState, StepType, stepDurationMs } from './lessonData';
+import { PreviewRenderer } from './PreviewRenderer';
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 const T = {
@@ -21,67 +24,68 @@ const T = {
   type_:    '#79c0ff',
   method:   '#d2a8ff',
   number_:  '#ffa657',
+  keyword_: '#ff7b72',
   text:     '#e6edf3',
   dim:      '#8b949e',
 };
 
 const FONT_SIZE_PX   = 22;
-const LINE_HEIGHT_PX = FONT_SIZE_PX * 1.9; // 41.8 px
+const LINE_HEIGHT_PX = FONT_SIZE_PX * 1.9;
 
 // ─── SYNTAX HIGHLIGHTER ───────────────────────────────────────────────────────
+// Covers all common Flutter/Dart tokens generically.
 function highlight(code: string): string {
   let h = code.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // Order matters: strings first to protect their contents.
   h = h
-    .replace(/'([^']*)('|$)/g, `§STR§'$1$2§END§`)
-    .replace(/(\b\d+(\.\d+)?\b)/g, '§NUM§$1§END§')
+    // String literals (single-quoted, incl. Arabic)
+    .replace(/'([^'\\]|\\.)*('|$)/g, `§STR§$&§END§`)
+    // Numbers (int, double)
+    .replace(/\b(\d+(\.\d+)?)\b/g, '§NUM§$1§END§')
+    // Dart keywords
     .replace(
-      /\b(Text|TextStyle|FontWeight|Colors|Container|BoxDecoration|BorderRadius|EdgeInsets|BoxShadow|Row|Column|Scaffold|AppBar|Padding|Center|SizedBox|Stack|Expanded|Flexible|ListView|GestureDetector|Icon|Icons|Image|ClipRRect|Align|Wrap)\b/g,
+      /\b(var|final|const|return|class|extends|implements|mixin|with|if|else|for|while|switch|case|break|new|this|super|null|true|false|void|async|await|import|export|enum|abstract|static|late|required)\b/g,
+      '§KW§$1§END§',
+    )
+    // Flutter widget types & common identifiers (uppercase-first)
+    .replace(
+      /\b([A-Z][a-zA-Z0-9]*)\b/g,
       '§TYP§$1§END§',
     )
-    .replace(
-      /\.(bold|w\d{3}|deepPurple|blue|red|green|orange|pink|teal|amber|circular|all|only|symmetric|fromLTRB|lerp|zero)\b/g,
-      '.§MTH§$1§END§',
-    )
-    .replace(/\b([a-zA-Z_]+)(?=:)/g, '§KEY§$1§END§');
+    // Named parameters / map keys (word before colon)
+    .replace(/\b([a-zA-Z_][a-zA-Z0-9_]*)(?=\s*:)/g, '§KEY§$1§END§')
+    // Method calls after dot
+    .replace(/\.([a-zA-Z_][a-zA-Z0-9_]*)(?=\(|\[|,|\)|\s|$)/g, '.§MTH§$1§END§');
 
   return h
     .replace(/§STR§/g, `<span style="color:${T.string_}">`)
     .replace(/§NUM§/g, `<span style="color:${T.number_}">`)
+    .replace(/§KW§/g,  `<span style="color:${T.keyword_}">`)
     .replace(/§TYP§/g, `<span style="color:${T.type_}">`)
     .replace(/§MTH§/g, `<span style="color:${T.method}">`)
     .replace(/§KEY§/g, `<span style="color:${T.text}">`)
     .replace(/§END§/g, '</span>');
 }
 
-// ─── STEP DURATION ────────────────────────────────────────────────────────────
-function stepDurationMs(step: StepType): number {
-  switch (step.a) {
-    case 'type':      return step.t.length * (step.speed ?? 80);
-    case 'wait':      return step.ms;
-    case 'move':
-    case 'enter':
-    case 'ide_enter': return 200;
-    case 'callout':   return 0;
-    default:          return 0;
-  }
-}
-
-// ─── TYPING ENGINE ────────────────────────────────────────────────────────────
+// ─── ENGINE STATE ─────────────────────────────────────────────────────────────
 interface EngineState {
   rawCode:   string;
   cursorIdx: number;
-  output:    OutputState;
+  preview:   PreviewState;
   callouts:  { text: string; line: number }[];
 }
 
+// ─── TYPING ENGINE ─────────────────────────────────────────────────────────────
+// Pure function — given the script and elapsed ms, returns the complete state.
 function computeStateAtMs(
-  script: StepType[],
-  initialOutput: OutputState,
-  elapsedMs: number,
+  script:         StepType[],
+  initialPreview: PreviewState,
+  elapsedMs:      number,
 ): EngineState {
   let rawCode   = '';
   let cursorIdx = 0;
-  let output    = { ...initialOutput };
+  let preview   = { ...initialPreview };
   const callouts: { text: string; line: number }[] = [];
   let rem = elapsedMs;
 
@@ -89,156 +93,143 @@ function computeStateAtMs(
     if (rem <= 0) break;
     const dur = stepDurationMs(step);
 
-    if (step.a === 'type') {
-      const typed = Math.min(step.t.length, Math.ceil(rem / (step.speed ?? 80)));
-      rawCode   = rawCode.slice(0, cursorIdx) + step.t.slice(0, typed) + rawCode.slice(cursorIdx);
-      cursorIdx += typed;
-      if (step.out && typed >= step.t.length) output = { ...output, ...step.out };
-      rem -= dur;
-
-    } else if (step.a === 'callout') {
-      const line = rawCode.slice(0, cursorIdx).split('\n').length - 1;
-      callouts.push({ text: step.text, line });
-
-    } else if (step.a === 'wait') {
-      rem -= dur;
-
-    } else if (step.a === 'move') {
-      if (rem >= dur) cursorIdx = Math.max(0, Math.min(cursorIdx + step.o, rawCode.length));
-      rem -= dur;
-
-    } else if (step.a === 'ide_enter') {
-      if (rem >= dur) {
-        const before = rawCode.slice(0, cursorIdx);
-        const after  = rawCode.slice(cursorIdx);
-        const sp     = ' '.repeat(step.ind);
-        const spEnd  = ' '.repeat(Math.max(0, step.ind - 2));
-        rawCode   = before + '\n' + sp + '\n' + spEnd + after;
-        cursorIdx += 1 + step.ind;
+    switch (step.a) {
+      case 'type': {
+        const charMs  = step.speed ?? 80;
+        const typed   = Math.min(step.t.length, Math.ceil(rem / charMs));
+        rawCode       = rawCode.slice(0, cursorIdx) + step.t.slice(0, typed) + rawCode.slice(cursorIdx);
+        cursorIdx    += typed;
+        if (step.out && typed >= step.t.length) {
+          preview = { ...preview, ...step.out };
+        }
+        rem -= dur;
+        break;
       }
-      rem -= dur;
 
-    } else if (step.a === 'enter') {
-      if (rem >= dur) {
-        rawCode   = rawCode.slice(0, cursorIdx) + '\n' + ' '.repeat(step.ind) + rawCode.slice(cursorIdx);
-        cursorIdx += 1 + step.ind;
+      case 'delete': {
+        if (rem >= dur) {
+          const n   = Math.min(step.n, cursorIdx);
+          rawCode   = rawCode.slice(0, cursorIdx - n) + rawCode.slice(cursorIdx);
+          cursorIdx -= n;
+        }
+        rem -= dur;
+        break;
       }
-      rem -= dur;
+
+      case 'callout': {
+        const line = rawCode.slice(0, cursorIdx).split('\n').length - 1;
+        callouts.push({ text: step.text, line });
+        // zero duration — don't touch rem
+        break;
+      }
+
+      case 'wait':
+        rem -= dur;
+        break;
+
+      case 'move':
+        if (rem >= dur) {
+          cursorIdx = Math.max(0, Math.min(cursorIdx + step.o, rawCode.length));
+        }
+        rem -= dur;
+        break;
+
+      case 'ide_enter': {
+        if (rem >= dur) {
+          const before = rawCode.slice(0, cursorIdx);
+          const after  = rawCode.slice(cursorIdx);
+          const sp     = ' '.repeat(step.ind);
+          const spEnd  = ' '.repeat(Math.max(0, step.ind - 2));
+          rawCode   = before + '\n' + sp + '\n' + spEnd + after;
+          cursorIdx += 1 + step.ind;
+        }
+        rem -= dur;
+        break;
+      }
+
+      case 'enter': {
+        if (rem >= dur) {
+          rawCode   = rawCode.slice(0, cursorIdx) + '\n' + ' '.repeat(step.ind) + rawCode.slice(cursorIdx);
+          cursorIdx += 1 + step.ind;
+        }
+        rem -= dur;
+        break;
+      }
     }
   }
 
-  return { rawCode, cursorIdx, output, callouts };
-}
-
-// ─── PROPS ────────────────────────────────────────────────────────────────────
-interface CodeEditorProps {
-  lesson: LessonData;
-  startFrame: number;
+  return { rawCode, cursorIdx, preview, callouts };
 }
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
+interface CodeEditorProps {
+  lesson:     LessonData;
+  startFrame: number;
+}
+
 export const CodeEditor: React.FC<CodeEditorProps> = ({ lesson, startFrame }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const elapsedMs = Math.max(0, ((frame - startFrame) / fps) * 1000);
 
-  const { rawCode, cursorIdx, output, callouts } = computeStateAtMs(
+  const { rawCode, cursorIdx, preview, callouts } = computeStateAtMs(
     lesson.script,
-    lesson.initialOutput,
+    lesson.initialPreview,
     elapsedMs,
   );
 
-  // Cursor blink every 500ms
-  const cursorOpacity = Math.floor(elapsedMs / 500) % 2 === 0 ? 1 : 0.1;
+  // Cursor blink (500ms period)
+  const cursorVisible = Math.floor(elapsedMs / 500) % 2 === 0;
   const cursor =
-    `<span style="display:inline-block;width:3px;height:26px;` +
+    `<span style="display:inline-block;width:3px;height:${FONT_SIZE_PX + 4}px;` +
     `background:${T.accent};vertical-align:middle;margin-bottom:-2px;` +
-    `box-shadow:0 0 8px ${T.accent};opacity:${cursorOpacity};"></span>`;
+    `box-shadow:0 0 8px ${T.accent};opacity:${cursorVisible ? 1 : 0.1};"></span>`;
 
-  const codeHtml = highlight(
-    rawCode.slice(0, cursorIdx) + '%%CUR%%' + rawCode.slice(cursorIdx),
-  )
+  const codeWithCursor = rawCode.slice(0, cursorIdx) + '%%CUR%%' + rawCode.slice(cursorIdx);
+  const codeHtml = highlight(codeWithCursor)
     .replace('%%CUR%%', cursor)
     .split('\n')
     .map(l => `<div style="${codeLineStyle}">${l || '&nbsp;'}</div>`)
     .join('');
 
-  const outputType = lesson.outputType ?? 'text';
-
   return (
     <div style={editorWin}>
 
-      {/* Mac chrome */}
+      {/* ── Mac chrome ──────────────────────────────────────────────────── */}
       <div style={chromBar}>
         <div style={{ ...dot, background: '#ff5f57' }} />
         <div style={{ ...dot, background: '#febc2e' }} />
         <div style={{ ...dot, background: '#28c840' }} />
+        <span style={chromTitle}>FlutterLesson.dart</span>
       </div>
 
-      {/* Code body */}
+      {/* ── Code body ───────────────────────────────────────────────────── */}
       <div style={ewBody}>
-        <div style={calloutsLayer}>
+        {/* Line numbers */}
+        <div style={lineNumbers}>
+          {rawCode.split('\n').map((_, i) => (
+            <div key={i} style={lineNumStyle}>{i + 1}</div>
+          ))}
+        </div>
+
+        {/* Code + callouts */}
+        <div style={{ position: 'relative', flex: 1 }}>
+          {/* Callout chips */}
           {callouts.map((cb, i) => (
             <div key={i} style={{ ...chip, top: cb.line * LINE_HEIGHT_PX + LINE_HEIGHT_PX / 2 }}>
               {cb.text}
             </div>
           ))}
+          <div dangerouslySetInnerHTML={{ __html: codeHtml }} />
         </div>
-        <div dangerouslySetInnerHTML={{ __html: codeHtml }} />
       </div>
 
-      {/* Output preview */}
+      {/* ── Output preview ──────────────────────────────────────────────── */}
       <div style={previewWrap}>
         <div style={previewLabel}>▸ OUTPUT</div>
-        <div style={previewBox}>
-
-          {/* ── TEXT mode (e.g. Text widget) ── */}
-          {outputType === 'text' && (
-            <span style={{
-              fontFamily:  "'Cairo', sans-serif",
-              fontSize:    output.fs * 2,
-              fontWeight:  output.fw,
-              color:       output.color,
-              letterSpacing: 0,
-              direction:   'rtl',
-              textAlign:   'center',
-              wordSpacing: output.ls * 8 + 'px',
-            }}>
-              {output.text || ''}
-            </span>
-          )}
-
-          {/* ── VISUAL mode (e.g. Container widget) ── */}
-          {outputType === 'visual' && (
-            <div style={{
-              width:         output.boxW ?? 200,
-              height:        output.boxH ?? 100,
-              background:    output.color !== '#e6edf3' ? output.color : '#1e293b',
-              borderRadius:  output.radius ?? 8,
-              boxShadow:     output.shadow
-                ? `0 ${output.shadow}px ${output.shadow * 2}px rgba(0,0,0,0.5)`
-                : 'none',
-              display:       'flex',
-              alignItems:    'center',
-              justifyContent:'center',
-              border:        '2px solid rgba(255,255,255,0.08)',
-            }}>
-              {output.text ? (
-                <span style={{
-                  fontFamily: "'Cairo', sans-serif",
-                  fontSize:   Math.max(output.fs, 16),
-                  fontWeight: output.fw,
-                  color:      '#ffffff',
-                  direction:  'rtl',
-                }}>
-                  {output.text}
-                </span>
-              ) : null}
-            </div>
-          )}
-
-        </div>
+        <PreviewRenderer state={preview} />
       </div>
+
     </div>
   );
 };
@@ -251,7 +242,7 @@ const editorWin: React.CSSProperties = {
   background:    `linear-gradient(135deg, ${T.surface2}, ${T.surface3})`,
   display:       'flex',
   flexDirection: 'column',
-  boxShadow:     '0 8px 32px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.05)',
+  boxShadow:     '0 8px 32px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.05)',
 };
 
 const chromBar: React.CSSProperties = {
@@ -259,21 +250,50 @@ const chromBar: React.CSSProperties = {
   padding:      '14px 20px',
   display:      'flex',
   alignItems:   'center',
-  gap:          12,
+  gap:          10,
   borderBottom: `1px solid ${T.border}`,
 };
 
+const chromTitle: React.CSSProperties = {
+  fontFamily:    "'JetBrains Mono', monospace",
+  fontSize:      14,
+  color:         T.dim,
+  marginLeft:    12,
+  letterSpacing: '.03em',
+};
+
 const dot: React.CSSProperties = {
-  width: 16, height: 16, borderRadius: '50%',
+  width: 14, height: 14, borderRadius: '50%',
   boxShadow: '0 1px 4px rgba(0,0,0,.4)',
+  flexShrink: 0,
 };
 
 const ewBody: React.CSSProperties = {
   background: T.surface2,
-  padding:    '24px 32px',
+  padding:    '20px 24px 20px 0',
   direction:  'ltr',
   fontSize:   FONT_SIZE_PX,
+  display:    'flex',
   position:   'relative',
+  minHeight:  80,
+};
+
+const lineNumbers: React.CSSProperties = {
+  display:       'flex',
+  flexDirection: 'column',
+  alignItems:    'flex-end',
+  padding:       '0 16px',
+  minWidth:      52,
+  userSelect:    'none',
+};
+
+const lineNumStyle: React.CSSProperties = {
+  fontFamily:  "'JetBrains Mono', monospace",
+  fontSize:    FONT_SIZE_PX - 4,
+  color:       T.dim,
+  lineHeight:  `${LINE_HEIGHT_PX}px`,
+  minHeight:   LINE_HEIGHT_PX,
+  opacity:     0.5,
 };
 
 const codeLineStyle =
@@ -287,58 +307,38 @@ const codeLineStyle =
   `min-height:${LINE_HEIGHT_PX}px;` +
   `position:relative;`;
 
-const calloutsLayer: React.CSSProperties = {
-  position:      'absolute',
-  top:           24,
-  right:         32,
-  left:          32,
-  bottom:        24,
-  pointerEvents: 'none',
-  zIndex:        10,
-};
-
 const chip: React.CSSProperties = {
   position:     'absolute',
   right:        0,
   background:   `linear-gradient(135deg, ${T.warm}, #f87316)`,
   color:        '#0a0e14',
-  fontSize:     16,
+  fontSize:     15,
   fontWeight:   800,
-  padding:      '6px 20px',
+  padding:      '5px 18px',
   borderRadius: 32,
   whiteSpace:   'nowrap',
   boxShadow:    '0 4px 16px rgba(245,158,11,.4)',
   fontFamily:   "'Cairo', sans-serif",
   direction:    'rtl',
   transform:    'translateY(-50%)',
+  zIndex:       10,
 };
 
 const previewWrap: React.CSSProperties = {
-  borderRadius:  16,
   border:        `1px solid ${T.border}`,
-  background:    'linear-gradient(135deg, rgba(124,58,237,.15), rgba(0,212,255,.08))',
+  borderTop:     `1px solid ${T.border}`,
+  background:    'linear-gradient(135deg, rgba(124,58,237,.12), rgba(0,212,255,.06))',
   display:       'flex',
   flexDirection: 'column',
-  gap:           10,
-  padding:       20,
-  boxShadow:     '0 8px 24px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.05)',
+  gap:           8,
+  padding:       '16px 20px',
+  boxShadow:     'inset 0 1px 0 rgba(255,255,255,.04)',
 };
 
 const previewLabel: React.CSSProperties = {
   color:         T.accent,
-  fontSize:      16,
+  fontSize:      14,
   fontFamily:    "'JetBrains Mono', monospace",
   letterSpacing: '.15em',
   fontWeight:    600,
-};
-
-const previewBox: React.CSSProperties = {
-  background:     'linear-gradient(135deg, rgba(124,58,237,.08), rgba(0,212,255,.04))',
-  border:         '1px solid rgba(0,212,255,.2)',
-  borderRadius:   12,
-  padding:        '24px 32px',
-  display:        'flex',
-  alignItems:     'center',
-  justifyContent: 'center',
-  minHeight:      100,
 };
