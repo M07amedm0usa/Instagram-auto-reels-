@@ -1,15 +1,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// FlutterLesson.tsx  v3 — Main Remotion composition
-//
-// Changes from v2:
-//   • TIMING imported from lessonData.ts (single source of truth).
-//   • outroStartFrame received as prop (calculated in Root).
-//   • React explicitly imported.
+// FlutterLesson.tsx  v3.1 (Reviewed & Patched - Safe Zones & Fallbacks added)
 // ─────────────────────────────────────────────────────────────────────────────
 import React from 'react';
 import {
   useCurrentFrame,
   useVideoConfig,
+  AbsoluteFill, // تم إضافتها للحفاظ على الـ Safe Zones
 } from 'remotion';
 import { LessonData, TIMING } from './lessonData';
 import { CodeEditor } from './CodeEditor';
@@ -18,7 +14,7 @@ import { CodeEditor } from './CodeEditor';
 const easeOut  = (t: number) => 1 - Math.pow(1 - t, 3);
 const clamp01  = (v: number) => Math.max(0, Math.min(1, v));
 
-// ─── PARTICLES (deterministic golden-angle distribution) ─────────────────────
+// ─── PARTICLES (deterministic) ───────────────────────────────────────────────
 const PARTICLES = Array.from({ length: 20 }, (_, i) => ({
   x:       (i * 137.508) % 1080,
   y:       (i * 97.3)    % 1920,
@@ -71,10 +67,8 @@ export const FlutterLesson: React.FC<FlutterLessonProps> = ({ lesson, outroStart
     ? easeOut(clamp01((ms - outroMs) / 600))
     : 0;
 
-  // ── Prop badge reveal delays ───────────────────────────────────────────
   const propDelays = [150, 300, 450, 650, 850, 1050];
 
-  // ── Particles ──────────────────────────────────────────────────────────
   const particleEls = PARTICLES.map((p, i) => {
     const x   = ((p.x + p.vx * frame) % 1080 + 1080) % 1080;
     const y   = ((p.y + p.vy * frame) % 1920 + 1920) % 1920;
@@ -95,89 +89,104 @@ export const FlutterLesson: React.FC<FlutterLessonProps> = ({ lesson, outroStart
     );
   });
 
+  // استخراج آمن لبيانات الـ Outro عشان ميحصلش Crash مع JSON قديم
+  const outroBadge = lesson.outro.badge || '💡';
+  const outroTitle = lesson.outro.title || lesson.outro.docLink || 'Flutter Documentation';
+  const outroSub = lesson.outro.subtitle || 'Learn more at flutter.dev';
+  const outroNext = lesson.outro.nextLesson || lesson.outro.nextVideo || 'Next Video';
+
   return (
-    <div style={phoneOuter}>
-      {/* Notch */}
-      <div style={notch}>
-        <div style={notchCam} />
-        <div style={notchMic} />
+    // استخدام AbsoluteFill لعمل خلفية فاتحة تحيط بالموبايل وتوفر أبعاد آمنة
+    <AbsoluteFill style={{ backgroundColor: '#F5F5F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ ...phoneOuter, transform: 'scale(0.92)' }}>
+        
+        {/* Notch */}
+        <div style={notch}>
+          <div style={notchCam} />
+          <div style={notchMic} />
+        </div>
+
+        <div style={screen}>
+          {/* Global particle layer */}
+          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
+            {particleEls}
+          </div>
+
+          {/* ── INTRO ─────────────────────────────────────────────────────── */}
+          <div style={{ ...sIntro, opacity: introOpacity }}>
+            <div style={{
+              ...iTag,
+              opacity:   ms > propDelays[0] ? 1 : 0,
+              transform: ms > propDelays[0] ? 'translateY(0)' : 'translateY(8px)',
+            }}>
+              {lesson.intro.tag}
+            </div>
+
+            <div style={{ ...iNumber, opacity: ms > propDelays[1] ? 1 : 0 }}>
+              {lesson.intro.number}
+            </div>
+
+            <div style={{
+              ...iTitle,
+              opacity:   ms > propDelays[2] ? 1 : 0,
+              transform: ms > propDelays[2] ? 'translateY(0) scale(1)' : 'translateY(16px) scale(0.94)',
+            }}>
+              {/* تصليح: استخدام dangerouslySetInnerHTML عشان أكواد الـ span في الداتا تتقرأ كـ ألوان */}
+              <span style={iTitleGradient} dangerouslySetInnerHTML={{ __html: lesson.intro.title }} />
+              {lesson.intro.titleSuffix}
+            </div>
+
+            <div style={{ ...iSub, opacity: ms > propDelays[3] ? 1 : 0 }}>
+              {lesson.intro.subtitle}
+            </div>
+
+            <div style={{ ...iDivider, opacity: ms > propDelays[4] ? 0.6 : 0 }} />
+
+            <div style={{
+              ...iProps,
+              opacity:   ms > propDelays[5] ? 1 : 0,
+              transform: ms > propDelays[5] ? 'translateY(0)' : 'translateY(8px)',
+            }}>
+              {lesson.intro.props.map((p: any, i) => {
+                // معالج ذكي يفهم الـ type أو الـ class القديم (ip-kw)
+                const propType = p.type || (p.class ? p.class.replace('ip-', '') : 'nm');
+                return (
+                  <div key={i} style={{ ...iProp, ...(PROP_COLORS[propType] ?? PROP_COLORS.nm) }}>
+                    {p.label}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ── CODE SCENE ────────────────────────────────────────────────── */}
+          <div style={{ ...sCode, opacity: codeOpacity, pointerEvents: 'none' }}>
+            <div style={codeSection}>
+              <div style={codeLabel}>▸ CODE</div>
+              <CodeEditor
+                lesson={lesson}
+                startFrame={Math.round((TIMING.CODE_TYPING / 1000) * fps)}
+              />
+            </div>
+          </div>
+
+          {/* ── OUTRO ─────────────────────────────────────────────────────── */}
+          <div style={{ ...sOutro, opacity: outroOpacity }}>
+            <div style={ouBadge}>{outroBadge}</div>
+            <div style={ouTitle}>
+              {outroTitle.split('\n').map((line: string, i: number) => (
+                <React.Fragment key={i}>{line}{i === 0 && <br />}</React.Fragment>
+              ))}
+            </div>
+            <div style={ouSub}>{outroSub}</div>
+            <div style={ouNext}>
+              <span>↩</span>
+              <span>{outroNext}</span>
+            </div>
+          </div>
+        </div>
       </div>
-
-      <div style={screen}>
-        {/* Global particle layer */}
-        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
-          {particleEls}
-        </div>
-
-        {/* ── INTRO ─────────────────────────────────────────────────────── */}
-        <div style={{ ...sIntro, opacity: introOpacity }}>
-          <div style={{
-            ...iTag,
-            opacity:   ms > propDelays[0] ? 1 : 0,
-            transform: ms > propDelays[0] ? 'translateY(0)' : 'translateY(8px)',
-          }}>
-            {lesson.intro.tag}
-          </div>
-
-          <div style={{ ...iNumber, opacity: ms > propDelays[1] ? 1 : 0 }}>
-            {lesson.intro.number}
-          </div>
-
-          <div style={{
-            ...iTitle,
-            opacity:   ms > propDelays[2] ? 1 : 0,
-            transform: ms > propDelays[2] ? 'translateY(0) scale(1)' : 'translateY(16px) scale(0.94)',
-          }}>
-            <span style={iTitleGradient}>{lesson.intro.title}</span>
-            {lesson.intro.titleSuffix}
-          </div>
-
-          <div style={{ ...iSub, opacity: ms > propDelays[3] ? 1 : 0 }}>
-            {lesson.intro.subtitle}
-          </div>
-
-          <div style={{ ...iDivider, opacity: ms > propDelays[4] ? 0.6 : 0 }} />
-
-          <div style={{
-            ...iProps,
-            opacity:   ms > propDelays[5] ? 1 : 0,
-            transform: ms > propDelays[5] ? 'translateY(0)' : 'translateY(8px)',
-          }}>
-            {lesson.intro.props.map((p, i) => (
-              <div key={i} style={{ ...iProp, ...(PROP_COLORS[p.type] ?? PROP_COLORS.nm) }}>
-                {p.label}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ── CODE SCENE ────────────────────────────────────────────────── */}
-        <div style={{ ...sCode, opacity: codeOpacity, pointerEvents: 'none' }}>
-          <div style={codeSection}>
-            <div style={codeLabel}>▸ CODE</div>
-            <CodeEditor
-              lesson={lesson}
-              startFrame={Math.round((TIMING.CODE_TYPING / 1000) * fps)}
-            />
-          </div>
-        </div>
-
-        {/* ── OUTRO ─────────────────────────────────────────────────────── */}
-        <div style={{ ...sOutro, opacity: outroOpacity }}>
-          <div style={ouBadge}>{lesson.outro.badge}</div>
-          <div style={ouTitle}>
-            {lesson.outro.title.split('\n').map((line, i) => (
-              <React.Fragment key={i}>{line}{i === 0 && <br />}</React.Fragment>
-            ))}
-          </div>
-          <div style={ouSub}>{lesson.outro.subtitle}</div>
-          <div style={ouNext}>
-            <span>↩</span>
-            <span>{lesson.outro.nextLesson}</span>
-          </div>
-        </div>
-      </div>
-    </div>
+    </AbsoluteFill>
   );
 };
 
@@ -191,7 +200,7 @@ const phoneOuter: React.CSSProperties = {
   border:       '3px solid #2a3040',
   boxShadow: [
     '0 0 0 2px #0a0d14',
-    '0 100px 300px rgba(0,0,0,.95)',
+    '0 100px 300px rgba(0,0,0,.95)', // الظل هيظهر شياكته على الخلفية الفاتحة
     '0 0 200px rgba(0,212,255,.08)',
     'inset 0 2px 0 rgba(255,255,255,.08)',
     'inset 0 -2px 4px rgba(0,0,0,.5)',
