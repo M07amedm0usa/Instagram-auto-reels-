@@ -1,11 +1,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Root.tsx  v3 — Remotion composition entry point
+// Root.tsx  v4 — Remotion composition entry point
 //
-// Fixes from v2:
-//   • React explicitly imported.
-//   • TIMING and stepDurationMs/scriptDurationMs imported from lessonData.ts
-//     (single source of truth — no local duplicates).
-//   • calculateMetadata handles missing lesson gracefully with defaultLesson.
+// Fixes from v3:
+//   • totalFrames / calcOutroStartFrame guard against undefined script.
+//   • calculateMetadata validates lesson.script before using it —
+//     prevents "Cannot read properties of undefined (reading 'reduce')"
+//     when --props JSON is missing or malformed.
 // ─────────────────────────────────────────────────────────────────────────────
 import React from 'react';
 import { Composition } from 'remotion';
@@ -19,8 +19,22 @@ import {
 
 const FPS = 30;
 
+// ─── SAFE LESSON RESOLVER ────────────────────────────────────────────────────
+// Remotion merges --props on top of defaultProps, so rawProps may be a
+// partial object. We validate that lesson.script is a real array before use.
+function resolveLesson(rawProps: Record<string, unknown>): LessonData {
+  const candidate = rawProps.lesson as LessonData | undefined;
+  if (candidate && Array.isArray(candidate.script) && candidate.script.length > 0) {
+    return candidate;
+  }
+  // Fallback to compiled-in default — never crashes.
+  return defaultLesson;
+}
+
 // ─── DURATION HELPERS ────────────────────────────────────────────────────────
 function totalFrames(lesson: LessonData): number {
+  // Guard: if script is somehow missing, return a safe minimum.
+  if (!lesson?.script || !Array.isArray(lesson.script)) return 300;
   const scriptMs  = scriptDurationMs(lesson.script);
   const codeEndMs = TIMING.CODE_TYPING + scriptMs + 800;
   const outroInMs = codeEndMs + 1200;
@@ -29,6 +43,7 @@ function totalFrames(lesson: LessonData): number {
 }
 
 function calcOutroStartFrame(lesson: LessonData): number {
+  if (!lesson?.script || !Array.isArray(lesson.script)) return 200;
   const scriptMs  = scriptDurationMs(lesson.script);
   const codeEndMs = TIMING.CODE_TYPING + scriptMs + 800;
   const outroInMs = codeEndMs + 1200;
@@ -54,10 +69,9 @@ export const RemotionRoot: React.FC = () => {
       height={1920}
       defaultProps={defaultProps}
       calculateMetadata={async ({ props }) => {
-        // props comes in as the raw JSON from --props.
-        // If n8n sends { lesson: {...} }, we pick it up here.
-        const rawProps = props as Partial<FlutterLessonProps>;
-        const l        = rawProps.lesson ?? lesson;
+        // props = defaultProps merged with whatever came from --props file.
+        // resolveLesson validates before use — no more "reduce of undefined".
+        const l = resolveLesson(props as Record<string, unknown>);
 
         return {
           durationInFrames: totalFrames(l),
