@@ -38,7 +38,12 @@ jobs:
             --props=/tmp/props.json \
             --concurrency=2 \
             --log=verbose
-
+      # الطريقة الآمنة لحفظ الـ JSON بدون ما اللينكس يقرأه كأوامر
+      - name: Save Props to File
+        env:
+          PROPS_JSON: ${{ toJson(github.event.client_payload.props || github.event.inputs.props || '{}') }}
+        run: echo "$PROPS_JSON" > props.json
+        
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
