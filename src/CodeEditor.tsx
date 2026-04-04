@@ -238,13 +238,13 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({ lesson, startFrame }) =>
 
 // ─── INLINE STYLES ────────────────────────────────────────────────────────────
 const editorWin: React.CSSProperties = {
-  borderRadius:    10,
+  borderRadius:    16,
   overflow:        'hidden',
   border:          `1px solid ${CSS_VARS.border2}`,
   background:      `linear-gradient(135deg, ${CSS_VARS.surface2}, ${CSS_VARS.surface3})`,
   display:         'flex',
   flexDirection:   'column',
-  flex:            1,
+  // NO flex:1 — grows with content
   boxShadow:       '0 8px 24px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.05)',
 };
 
@@ -267,11 +267,10 @@ const dot: React.CSSProperties = {
 const ewBody: React.CSSProperties = {
   background:  CSS_VARS.surface2,
   padding:     '24px 32px',
-  overflow:    'hidden',
-  flex:        1,
   direction:   'ltr',
   fontSize:    FONT_SIZE_PX,
   position:    'relative',
+  // height grows with code lines automatically
 };
 
 const codeLine =
@@ -326,11 +325,9 @@ const previewLabel: React.CSSProperties = {
 const previewBox: React.CSSProperties = {
   background:     'linear-gradient(135deg, rgba(124,58,237,.08), rgba(0,212,255,.04))',
   border:         '1px solid rgba(0,212,255,.2)',
-  borderRadius:   8,
-  padding:        16,
+  borderRadius:   12,
+  padding:        '24px 32px',
   display:        'flex',
   alignItems:     'center',
   justifyContent: 'center',
-  flex:           1,
-  minHeight:      60,
 };

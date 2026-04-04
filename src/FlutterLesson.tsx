@@ -251,9 +251,10 @@ const sIntro: React.CSSProperties = {
 
 const sCode: React.CSSProperties = {
   ...sceneBase,
-  padding:        '120px 40px 120px 40px',
+  padding:        '100px 40px 60px 40px',
   gap:            24,
-  justifyContent: 'center',
+  justifyContent: 'flex-start',   // من فوق
+  alignItems:     'stretch',
 };
 
 const sOutro: React.CSSProperties = {
@@ -267,9 +268,7 @@ const sOutro: React.CSSProperties = {
 const codeSection: React.CSSProperties = {
   display:       'flex',
   flexDirection: 'column',
-  gap:           16,
-  flex:          1,
-  overflow:      'hidden',
+  gap:           20,
 };
 
 const codeLabel: React.CSSProperties = {
