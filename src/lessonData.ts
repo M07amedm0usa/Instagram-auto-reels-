@@ -1,22 +1,30 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// lessonData.ts — Flutter Widget Lesson Data (Container Widget example)
-// Input shape consumed by FlutterLesson.tsx via inputProps
+// lessonData.ts  v2
+// Supports two output preview modes via lesson.outputType:
+//   'text'   — Arabic/English text (default, e.g. Text widget)
+//   'visual' — colored box that changes shape/color (e.g. Container widget)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type StepType =
-  | { a: 'type';     t: string; speed?: number; out?: Partial<OutputState> }
-  | { a: 'callout';  text: string }
-  | { a: 'wait';     ms: number }
-  | { a: 'move';     o: number }
-  | { a: 'enter';    ind: number }
+  | { a: 'type';      t: string; speed?: number; out?: Partial<OutputState> }
+  | { a: 'callout';   text: string }
+  | { a: 'wait';      ms: number }
+  | { a: 'move';      o: number }
+  | { a: 'enter';     ind: number }
   | { a: 'ide_enter'; ind: number };
 
 export interface OutputState {
-  text:  string;
-  fs:    number;   // fontSize px
-  fw:    number;   // fontWeight
-  color: string;
-  ls:    number;   // letterSpacing em
+  // ── text mode ──
+  text:   string;
+  fs:     number;   // fontSize (multiplied ×2 when rendered)
+  fw:     number;   // fontWeight
+  color:  string;
+  ls:     number;   // letterSpacing em (converted to wordSpacing for Arabic)
+  // ── visual mode ──
+  boxW?:   number;  // container width px
+  boxH?:   number;  // container height px
+  radius?: number;  // border-radius px
+  shadow?: number;  // box-shadow blur radius px
 }
 
 export interface IntroProp {
@@ -25,30 +33,29 @@ export interface IntroProp {
 }
 
 export interface LessonData {
-  /** Intro slide content */
   intro: {
-    tag:     string;   // e.g. "FLUTTER BASICS"
-    number:  string;   // e.g. "01"
-    title:   string;   // e.g. "Text"
-    titleSuffix: string; // e.g. " Widget"
-    subtitle: string;
-    props:   IntroProp[];
+    tag:         string;
+    number:      string;
+    title:       string;
+    titleSuffix: string;
+    subtitle:    string;
+    props:       IntroProp[];
   };
-  /** Outro slide content */
   outro: {
-    badge:    string;
-    title:    string;
-    subtitle: string;
+    badge:      string;
+    title:      string;
+    subtitle:   string;
     nextLesson: string;
   };
-  /** Starting state of the output preview */
   initialOutput: OutputState;
-  /** Typing engine script */
+  /** Controls which output preview renderer is used */
+  outputType?: 'text' | 'visual';
   script: StepType[];
 }
 
-// ─── Text Widget lesson (the original demo) ───────────────────────────────────
+// ─── 01 · Text Widget ─────────────────────────────────────────────────────────
 export const textWidgetLesson: LessonData = {
+  outputType: 'text',
   intro: {
     tag:         'FLUTTER BASICS',
     number:      '01',
@@ -70,56 +77,53 @@ export const textWidgetLesson: LessonData = {
   },
   initialOutput: { text: '', fs: 16, fw: 400, color: '#e6edf3', ls: 0 },
   script: [
-    { a: 'type',     t: 'Text()',                           speed: 90 },
-    { a: 'wait',     ms: 500 },
-    { a: 'move',     o: -1 },
-    { a: 'wait',     ms: 300 },
+    { a: 'type',      t: 'Text()',                        speed: 90 },
+    { a: 'wait',      ms: 500 },
+    { a: 'move',      o: -1 },
+    { a: 'wait',      ms: 300 },
     { a: 'ide_enter', ind: 2 },
-    { a: 'wait',     ms: 400 },
-    { a: 'type',     t: "'مرحباً بالعالم',",               speed: 80, out: { text: 'مرحباً بالعالم' } },
-    { a: 'callout',  text: 'النص المعروض' },
-    { a: 'wait',     ms: 500 },
-    { a: 'enter',    ind: 2 },
-    { a: 'type',     t: 'style: TextStyle()',               speed: 80 },
-    { a: 'wait',     ms: 400 },
-    { a: 'move',     o: -1 },
-    { a: 'wait',     ms: 300 },
+    { a: 'wait',      ms: 400 },
+    { a: 'type',      t: "'مرحباً بالعالم',",             speed: 80, out: { text: 'مرحباً بالعالم' } },
+    { a: 'callout',   text: 'النص المعروض' },
+    { a: 'wait',      ms: 500 },
+    { a: 'enter',     ind: 2 },
+    { a: 'type',      t: 'style: TextStyle()',             speed: 80 },
+    { a: 'wait',      ms: 400 },
+    { a: 'move',      o: -1 },
+    { a: 'wait',      ms: 300 },
     { a: 'ide_enter', ind: 4 },
-    { a: 'wait',     ms: 400 },
-    { a: 'type',     t: 'fontSize: 24,',                   speed: 80, out: { fs: 24 } },
-    { a: 'callout',  text: 'حجم الخط' },
-    { a: 'wait',     ms: 500 },
-    { a: 'enter',    ind: 4 },
-    { a: 'type',     t: 'fontWeight: FontWeight.bold,',    speed: 80, out: { fw: 700 } },
-    { a: 'callout',  text: 'سُمك الخط' },
-    { a: 'wait',     ms: 500 },
-    { a: 'enter',    ind: 4 },
-    { a: 'type',     t: 'color: Colors.deepPurple,',       speed: 80, out: { color: '#7c3aed' } },
-    { a: 'callout',  text: 'لون النص' },
-    { a: 'wait',     ms: 500 },
-    { a: 'enter',    ind: 4 },
-    { a: 'type',     t: 'letterSpacing: 1.2,',             speed: 80, out: { ls: 1.2 } },
-    { a: 'callout',  text: 'المسافة بين الحروف' },
-    { a: 'wait',     ms: 800 },
-    { a: 'move',     o: 1 },
-    { a: 'wait',     ms: 300 },
-    { a: 'move',     o: 1 },
+    { a: 'wait',      ms: 400 },
+    { a: 'type',      t: 'fontSize: 24,',                 speed: 80, out: { fs: 24 } },
+    { a: 'callout',   text: 'حجم الخط' },
+    { a: 'wait',      ms: 500 },
+    { a: 'enter',     ind: 4 },
+    { a: 'type',      t: 'fontWeight: FontWeight.bold,',  speed: 80, out: { fw: 700 } },
+    { a: 'callout',   text: 'سُمك الخط' },
+    { a: 'wait',      ms: 500 },
+    { a: 'enter',     ind: 4 },
+    { a: 'type',      t: 'color: Colors.deepPurple,',     speed: 80, out: { color: '#7c3aed' } },
+    { a: 'callout',   text: 'لون النص' },
+    { a: 'wait',      ms: 800 },
+    { a: 'move',      o: 1 },
+    { a: 'wait',      ms: 300 },
+    { a: 'move',      o: 1 },
   ],
 };
 
-// ─── Container Widget lesson ───────────────────────────────────────────────────
+// ─── 02 · Container Widget ────────────────────────────────────────────────────
 export const containerWidgetLesson: LessonData = {
+  outputType: 'visual',
   intro: {
     tag:         'FLUTTER BASICS',
     number:      '02',
     title:       'Container',
     titleSuffix: ' Widget',
-    subtitle:    'ازاي تتحكم في الشكل والحجم',
+    subtitle:    'ازاي تغلف وتنسق الـ Widgets',
     props: [
-      { label: 'Container',  type: 'kw' },
+      { label: 'Container',     type: 'kw' },
       { label: 'BoxDecoration', type: 'ty' },
-      { label: 'padding',    type: 'nm' },
-      { label: 'borderRadius', type: 'mt' },
+      { label: 'padding',       type: 'nm' },
+      { label: 'decoration',    type: 'mt' },
     ],
   },
   outro: {
@@ -128,41 +132,47 @@ export const containerWidgetLesson: LessonData = {
     subtitle:   'flutter.dev/docs',
     nextLesson: 'الجزء الجاي: Row & Column',
   },
-  initialOutput: { text: 'Container', fs: 14, fw: 400, color: '#e6edf3', ls: 0 },
+  initialOutput: {
+    text: '', fs: 16, fw: 400, color: '#1e293b', ls: 0,
+    boxW: 200, boxH: 100, radius: 8, shadow: 0,
+  },
   script: [
-    { a: 'type',     t: 'Container()',                     speed: 90 },
-    { a: 'wait',     ms: 500 },
-    { a: 'move',     o: -1 },
-    { a: 'wait',     ms: 300 },
+    { a: 'type',      t: 'Container()',                                   speed: 90 },
+    { a: 'wait',      ms: 500 },
+    { a: 'move',      o: -1 },
+    { a: 'wait',      ms: 300 },
     { a: 'ide_enter', ind: 2 },
-    { a: 'wait',     ms: 400 },
-    { a: 'type',     t: 'width: 200,',                    speed: 80, out: { fs: 16 } },
-    { a: 'callout',  text: 'العرض بالـ px' },
-    { a: 'wait',     ms: 500 },
-    { a: 'enter',    ind: 2 },
-    { a: 'type',     t: 'height: 120,',                   speed: 80 },
-    { a: 'callout',  text: 'الارتفاع بالـ px' },
-    { a: 'wait',     ms: 500 },
-    { a: 'enter',    ind: 2 },
-    { a: 'type',     t: 'decoration: BoxDecoration()',    speed: 80 },
-    { a: 'wait',     ms: 400 },
-    { a: 'move',     o: -1 },
-    { a: 'wait',     ms: 300 },
+    { a: 'wait',      ms: 400 },
+    { a: 'type',      t: 'width: 200,',                                   speed: 80, out: { boxW: 200 } },
+    { a: 'callout',   text: 'العرض بالـ px' },
+    { a: 'wait',      ms: 500 },
+    { a: 'enter',     ind: 2 },
+    { a: 'type',      t: 'height: 100,',                                  speed: 80, out: { boxH: 100 } },
+    { a: 'callout',   text: 'الارتفاع بالـ px' },
+    { a: 'wait',      ms: 500 },
+    { a: 'enter',     ind: 2 },
+    { a: 'type',      t: 'decoration: BoxDecoration()',                   speed: 80 },
+    { a: 'wait',      ms: 400 },
+    { a: 'move',      o: -1 },
+    { a: 'wait',      ms: 300 },
     { a: 'ide_enter', ind: 4 },
-    { a: 'wait',     ms: 400 },
-    { a: 'type',     t: 'color: Colors.blue,',           speed: 80, out: { color: '#1a73e8' } },
-    { a: 'callout',  text: 'لون الخلفية' },
-    { a: 'wait',     ms: 500 },
-    { a: 'enter',    ind: 4 },
-    { a: 'type',     t: 'borderRadius: BorderRadius.circular(16),', speed: 70, out: { ls: 0.5 } },
-    { a: 'callout',  text: 'زوايا دائرية' },
-    { a: 'wait',     ms: 800 },
-    { a: 'move',     o: 1 },
-    { a: 'wait',     ms: 300 },
-    { a: 'move',     o: 1 },
+    { a: 'wait',      ms: 400 },
+    { a: 'type',      t: 'color: Colors.blue,',                           speed: 80, out: { color: '#1a73e8' } },
+    { a: 'callout',   text: 'لون الخلفية' },
+    { a: 'wait',      ms: 500 },
+    { a: 'enter',     ind: 4 },
+    { a: 'type',      t: 'borderRadius: BorderRadius.circular(16),',      speed: 70, out: { radius: 16 } },
+    { a: 'callout',   text: 'زوايا دائرية' },
+    { a: 'wait',      ms: 500 },
+    { a: 'enter',     ind: 4 },
+    { a: 'type',      t: 'boxShadow: [BoxShadow(blurRadius: 12)],',      speed: 70, out: { shadow: 12 } },
+    { a: 'callout',   text: 'ظل تحت الـ Container' },
+    { a: 'wait',      ms: 800 },
+    { a: 'move',      o: 1 },
+    { a: 'wait',      ms: 300 },
+    { a: 'move',      o: 1 },
   ],
 };
 
-// Default export — swap this to change the active lesson
-export const defaultLesson = textWidgetLesson;
-    
+// ── Active lesson (change this to switch in Remotion Studio) ──────────────────
+export const defaultLesson = containerWidgetLesson;
