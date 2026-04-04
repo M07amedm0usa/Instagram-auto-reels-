@@ -1,11 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// CodeEditor.tsx — Remotion Typing Engine  v3
-//
-// Changes from v2:
-//   • Uses stepDurationMs() from lessonData.ts (single source of truth).
-//   • Preview driven by PreviewRenderer — no widget-specific branches here.
-//   • Added 'delete' step support.
-//   • computeStateAtMs is pure — no side effects, fully deterministic.
+// CodeEditor.tsx — Remotion Typing Engine  v3.1 (Final Patched Version)
 // ─────────────────────────────────────────────────────────────────────────────
 import React from 'react';
 import { useCurrentFrame, useVideoConfig } from 'remotion';
@@ -31,31 +25,24 @@ const T = {
 
 const FONT_SIZE_PX   = 22;
 const LINE_HEIGHT_PX = FONT_SIZE_PX * 1.9;
+const EW_BODY_PADDING_TOP = 20; // fixed padding
 
 // ─── SYNTAX HIGHLIGHTER ───────────────────────────────────────────────────────
-// Covers all common Flutter/Dart tokens generically.
 function highlight(code: string): string {
   let h = code.replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-  // Order matters: strings first to protect their contents.
   h = h
-    // String literals (single-quoted, incl. Arabic)
     .replace(/'([^'\\]|\\.)*('|$)/g, `§STR§$&§END§`)
-    // Numbers (int, double)
     .replace(/\b(\d+(\.\d+)?)\b/g, '§NUM§$1§END§')
-    // Dart keywords
     .replace(
       /\b(var|final|const|return|class|extends|implements|mixin|with|if|else|for|while|switch|case|break|new|this|super|null|true|false|void|async|await|import|export|enum|abstract|static|late|required)\b/g,
       '§KW§$1§END§',
     )
-    // Flutter widget types & common identifiers (uppercase-first)
     .replace(
       /\b([A-Z][a-zA-Z0-9]*)\b/g,
       '§TYP§$1§END§',
     )
-    // Named parameters / map keys (word before colon)
     .replace(/\b([a-zA-Z_][a-zA-Z0-9_]*)(?=\s*:)/g, '§KEY§$1§END§')
-    // Method calls after dot
     .replace(/\.([a-zA-Z_][a-zA-Z0-9_]*)(?=\(|\[|,|\)|\s|$)/g, '.§MTH§$1§END§');
 
   return h
@@ -64,7 +51,7 @@ function highlight(code: string): string {
     .replace(/§KW§/g,  `<span style="color:${T.keyword_}">`)
     .replace(/§TYP§/g, `<span style="color:${T.type_}">`)
     .replace(/§MTH§/g, `<span style="color:${T.method}">`)
-    .replace(/§KEY§/g, `<span style="color:${T.text}">`)
+    .replace(/KEY/g, `<span style="color:${T.text}">`)
     .replace(/§END§/g, '</span>');
 }
 
@@ -77,7 +64,6 @@ interface EngineState {
 }
 
 // ─── TYPING ENGINE ─────────────────────────────────────────────────────────────
-// Pure function — given the script and elapsed ms, returns the complete state.
 function computeStateAtMs(
   script:         StepType[],
   initialPreview: PreviewState,
@@ -119,7 +105,6 @@ function computeStateAtMs(
       case 'callout': {
         const line = rawCode.slice(0, cursorIdx).split('\n').length - 1;
         callouts.push({ text: step.text, line });
-        // zero duration — don't touch rem
         break;
       }
 
@@ -178,16 +163,16 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({ lesson, startFrame }) =>
     elapsedMs,
   );
 
-  // Cursor blink (500ms period)
   const cursorVisible = Math.floor(elapsedMs / 500) % 2 === 0;
   const cursor =
     `<span style="display:inline-block;width:3px;height:${FONT_SIZE_PX + 4}px;` +
     `background:${T.accent};vertical-align:middle;margin-bottom:-2px;` +
     `box-shadow:0 0 8px ${T.accent};opacity:${cursorVisible ? 1 : 0.1};"></span>`;
 
-  const codeWithCursor = rawCode.slice(0, cursorIdx) + '%%CUR%%' + rawCode.slice(cursorIdx);
+  // Apply §CUR§ fix: استخدام §CUR§ ليكون محمي من دالة الـ Regex
+  const codeWithCursor = rawCode.slice(0, cursorIdx) + '§CUR§' + rawCode.slice(cursorIdx);
   const codeHtml = highlight(codeWithCursor)
-    .replace('%%CUR%%', cursor)
+    .replace('§CUR§', cursor) // Apply §CUR§ fix
     .split('\n')
     .map(l => `<div style="${codeLineStyle}">${l || '&nbsp;'}</div>`)
     .join('');
@@ -195,7 +180,6 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({ lesson, startFrame }) =>
   return (
     <div style={editorWin}>
 
-      {/* ── Mac chrome ──────────────────────────────────────────────────── */}
       <div style={chromBar}>
         <div style={{ ...dot, background: '#ff5f57' }} />
         <div style={{ ...dot, background: '#febc2e' }} />
@@ -203,20 +187,17 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({ lesson, startFrame }) =>
         <span style={chromTitle}>FlutterLesson.dart</span>
       </div>
 
-      {/* ── Code body ───────────────────────────────────────────────────── */}
       <div style={ewBody}>
-        {/* Line numbers */}
         <div style={lineNumbers}>
           {rawCode.split('\n').map((_, i) => (
             <div key={i} style={lineNumStyle}>{i + 1}</div>
           ))}
         </div>
 
-        {/* Code + callouts */}
         <div style={{ position: 'relative', flex: 1 }}>
-          {/* Callout chips */}
           {callouts.map((cb, i) => (
-            <div key={i} style={{ ...chip, top: cb.line * LINE_HEIGHT_PX + LINE_HEIGHT_PX / 2 }}>
+            // تم الحفاظ على تصحيح الـ vertical positioning
+            <div key={i} style={{ ...chip, top: (cb.line * LINE_HEIGHT_PX) + (LINE_HEIGHT_PX / 2) + EW_BODY_PADDING_TOP }}>
               {cb.text}
             </div>
           ))}
@@ -224,7 +205,6 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({ lesson, startFrame }) =>
         </div>
       </div>
 
-      {/* ── Output preview ──────────────────────────────────────────────── */}
       <div style={previewWrap}>
         <div style={previewLabel}>▸ OUTPUT</div>
         <PreviewRenderer state={preview} />
@@ -270,7 +250,7 @@ const dot: React.CSSProperties = {
 
 const ewBody: React.CSSProperties = {
   background: T.surface2,
-  padding:    '20px 24px 20px 0',
+  padding:    `${EW_BODY_PADDING_TOP}px 24px 20px 0`, // تم الحفاظ على تصحيح الـ padding
   direction:  'ltr',
   fontSize:   FONT_SIZE_PX,
   display:    'flex',
@@ -333,12 +313,4 @@ const previewWrap: React.CSSProperties = {
   gap:           8,
   padding:       '16px 20px',
   boxShadow:     'inset 0 1px 0 rgba(255,255,255,.04)',
-};
-
-const previewLabel: React.CSSProperties = {
-  color:         T.accent,
-  fontSize:      14,
-  fontFamily:    "'JetBrains Mono', monospace",
-  letterSpacing: '.15em',
-  fontWeight:    600,
 };
