@@ -219,13 +219,12 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({ lesson, startFrame }) =>
           <span
             style={{
               fontFamily: "'Cairo', sans-serif",
-              fontSize:   output.fs,
+              fontSize:   output.fs * 2,   // ضعف الحجم — 16→32, 24→48
               fontWeight: output.fw,
               color:      output.color,
               letterSpacing: output.ls + 'em',
               direction:  'rtl',
               textAlign:  'center',
-              transition: 'all 0.2s ease',
             }}
           >
             {output.text || ''}
