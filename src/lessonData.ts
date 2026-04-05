@@ -93,7 +93,7 @@ export interface LessonData {
   script: StepType[];
 }
 
-// ── Timing Helper ──
+// ── Timing Helper: Single Step ──
 export function stepDurationMs(step: StepType): number {
   switch (step.a) {
     case 'type':      return (step.t.length * (step.speed ?? 80));
@@ -106,6 +106,12 @@ export function stepDurationMs(step: StepType): number {
     default:          return 0;
   }
 }
+
+// ── Timing Helper: Total Script Duration ──
+export function scriptDurationMs(script: StepType[]): number {
+  return script.reduce((total, step) => total + stepDurationMs(step), 0);
+}
+
 // ── Default Fallback Lesson ──
 export const defaultLesson: LessonData = {
   lessonId: "default_fallback",
