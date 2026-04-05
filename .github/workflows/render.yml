@@ -28,7 +28,7 @@ jobs:
 
       # 3. ثبّت الـ dependencies
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       # 4. اكتشف الملف اللي اتغير
       - name: Detect changed lesson file
