@@ -5,10 +5,22 @@
     "title": "<span>Text</span> Widget",
     "subtitle": "ازاي تعرض نص في التطبيق",
     "props": [
-      { "text": "Text",      "type": "ip-kw" },
-      { "text": "TextStyle", "type": "ip-ty" },
-      { "text": "fontSize",  "type": "ip-nm" },
-      { "text": "bold",      "type": "ip-mt" }
+      {
+        "text": "Text",
+        "type": "ip-kw"
+      },
+      {
+        "text": "TextStyle",
+        "type": "ip-ty"
+      },
+      {
+        "text": "fontSize",
+        "type": "ip-nm"
+      },
+      {
+        "text": "bold",
+        "type": "ip-mt"
+      }
     ]
   },
   "outro": {
@@ -17,70 +29,89 @@
     "next": "<span>↩</span><span>الجزء الجاي: Container</span>"
   },
   "script": [
-    { "sync": 500 },
-
+    {
+      "sync": 500
+    },
     {
       "type": "Text()",
       "audio": "s01_text_widget.mp3"
     },
-
-    { "move": -1 },
-    { "enter": 2 },
-
+    {
+      "move": -1
+    },
+    {
+      "enter": 2
+    },
     {
       "error": "'مرحي'",
       "fix": "'مرحباً بالعالم',",
-      "out": { "text": "مرحباً بالعالم" },
+      "out": {
+        "text": "مرحباً بالعالم"
+      },
       "audio": "s02_string_param.mp3"
     },
-
     {
       "callout": "النص المعروض",
       "audio": "s03_callout_text.mp3"
     },
-
-    { "sync": 3500 },
-    { "enter": 2 },
-
+    {
+      "wait": 1000
+    },
+    {
+      "sync": 3500
+    },
+    {
+      "enter": 2
+    },
     {
       "type": "style: TextStyle()",
       "audio": "s04_textstyle.mp3"
     },
-
-    { "move": -1 },
-    { "enter": 4 },
-
+    {
+      "move": -1
+    },
+    {
+      "enter": 4
+    },
     {
       "type": "fontSize: 24,",
-      "out": { "fs": 24 },
+      "out": {
+        "fs": 24
+      },
       "audio": "s05_fontsize.mp3"
     },
-
     {
       "callout": "حجم الخط",
       "audio": "s06_callout_size.mp3"
     },
-
-    { "wait": 400 },
-    { "enter": 4 },
-
+    {
+      "wait": 400
+    },
+    {
+      "enter": 4
+    },
     {
       "type": "fontWeight: FontWeight.bold,",
-      "out": { "fw": 700 },
+      "out": {
+        "fw": 700
+      },
       "audio": "s07_fontweight.mp3"
     },
-
     {
       "callout": "سُمك الخط",
       "audio": "s08_callout_weight.mp3"
     },
-
-    { "wait": 400 },
-    { "enter": 4 },
-
+    {
+      "wait": 400
+    },
+    {
+      "enter": 4
+    },
     {
       "type": "color: Colors.deepPurple,",
-      "out": { "color": "#7c3aed" },
+      "out": {
+        "color": "#7c3aed"
+      },
       "audio": "s09_color.mp3"
     }
   ]
