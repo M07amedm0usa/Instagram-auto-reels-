@@ -314,3 +314,12 @@ const previewWrap: React.CSSProperties = {
   padding:       '16px 20px',
   boxShadow:     'inset 0 1px 0 rgba(255,255,255,.04)',
 };
+
+const previewLabel: React.CSSProperties = {
+  color:         T.accent,
+  fontSize:      14,
+  fontFamily:    "'JetBrains Mono', monospace",
+  letterSpacing: '.15em',
+  fontWeight:    600,
+};
+
