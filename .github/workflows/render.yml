@@ -1,21 +1,16 @@
-name: Render Flutter Reel
+name: Render Flutter Lesson
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Triggers:
-#   • Manual dispatch — paste a LessonData JSON string in the UI.
-#   • Repository dispatch — n8n calls POST /repos/{owner}/{repo}/dispatches
-#     with { "event_type": "render", "client_payload": { "lesson": {...} } }
-# ─────────────────────────────────────────────────────────────────────────────
 on:
+  # يشتغل لما n8n يبعتله طلب عبر API
   workflow_dispatch:
     inputs:
       lesson_json:
-        description: 'Full LessonData JSON (the value of the "lesson" key)'
+        description: 'Lesson data as JSON string'
         required: true
-        default: '{}'
-
-  repository_dispatch:
-    types: [render]
+      lesson_id:
+        description: 'e.g. lesson_02'
+        required: true
+        default: 'lesson_01'
 
 jobs:
   render:
@@ -23,61 +18,49 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      # ── 1. Checkout ──────────────────────────────────────────────────────
-      - name: Checkout repo
+      # 1. نزل الكود
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # ── 2. Node ──────────────────────────────────────────────────────────
-      - name: Setup Node.js 20
+      # 2. ثبّت Node
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 20
           cache: 'npm'
 
-      # ── 3. Install deps ──────────────────────────────────────────────────
+      # 3. ثبّت الـ dependencies
       - name: Install dependencies
         run: npm ci
 
-      # ── 4. Chrome ────────────────────────────────────────────────────────
-      - name: Install Chrome for Remotion
+      # 4. حط الـ lesson JSON اللي جاي من n8n
+      - name: Write lesson JSON
+        run: |
+          echo '${{ github.event.inputs.lesson_json }}' \
+            > src/data/current_lesson.json
+
+      # 5. حط الـ voiceover من الـ Secret
+      #    (هنشرح ده تحت)
+      - name: Write voiceover
+        run: |
+          echo "${{ secrets.VOICEOVER_B64 }}" | base64 -d \
+            > src/assets/voiceover.mp3
+
+      # 6. ثبّت الـ Chrome اللي Remotion محتاجه
+      - name: Install Chrome
         run: npx remotion browser ensure
 
-      # ── 5. Build props JSON ──────────────────────────────────────────────
-      # Supports both manual dispatch (lesson_json input) and
-      # repository_dispatch (client_payload.lesson).
-      # The props file must be { "lesson": { ... } } so Remotion's
-      # calculateMetadata receives props.lesson correctly.
-      - name: Build props file
-        env:
-          # For workflow_dispatch: the raw lesson JSON string
-          LESSON_MANUAL: ${{ github.event.inputs.lesson_json }}
-          # For repository_dispatch: the lesson object (already parsed by GitHub)
-          LESSON_DISPATCH: ${{ toJson(github.event.client_payload.lesson) }}
-        run: |
-          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-            # client_payload.lesson is already a JSON object
-            echo "{\"lesson\": $LESSON_DISPATCH}" > /tmp/props.json
-          else
-            # workflow_dispatch: lesson_json is a raw JSON string of the lesson object
-            echo "{\"lesson\": $LESSON_MANUAL}" > /tmp/props.json
-          fi
-          echo "── props.json contents ──"
-          cat /tmp/props.json
-
-      # ── 6. Render ────────────────────────────────────────────────────────
+      # 7. ارندر الفيديو
       - name: Render video
         run: |
-          mkdir -p out
-          npx remotion render FlutterLesson out/reel.mp4 \
-            --props=/tmp/props.json \
-            --gl=swiftshader \
-            --concurrency=2 \
-            --log=verbose
+          npx remotion render FlutterLesson \
+            out/${{ github.event.inputs.lesson_id }}.mp4 \
+            --props='{"lesson": '"$(cat src/data/current_lesson.json)"', "voiceover": "voiceover.mp3"}'
 
-      # ── 7. Upload artifact ───────────────────────────────────────────────
-      - name: Upload rendered video
+      # 8. ارفع الفيديو كـ Artifact عشان تقدر تنزله
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: flutter-reel-${{ github.run_id }}
-          path: out/reel.mp4
-          retention-days: 7
+          name: ${{ github.event.inputs.lesson_id }}
+          path: out/${{ github.event.inputs.lesson_id }}.mp4
+          retention-days: 3
