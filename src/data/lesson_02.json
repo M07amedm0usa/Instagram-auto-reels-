@@ -1,1 +1,83 @@
-
+{
+  "intro": {
+    "tag": "FLUTTER BASICS",
+    "number": "02",
+    "title": "<span>Container</span> Widget",
+    "subtitle": "حاوية",
+    "props": [
+      {
+        "text": "child",
+        "type": "ip-nm"
+      },
+      {
+        "text": "width",
+        "type": "ip-nm"
+      },
+      {
+        "text": "height",
+        "type": "ip-nm"
+      },
+      {
+        "text": "color",
+        "type": "ip-nm"
+      }
+    ]
+  },
+  "outro": {
+    "title": "النهاية",
+    "doc": "flutter.dev/docs",
+    "next": "<span>↩</span><span>الجزء الجاي: Text</span>"
+  },
+  "script": [
+    {
+      "sync": 1
+    },
+    {
+      "type": "class",
+      "audio": "s01_container_class.mp3"
+    },
+    {
+      "error": "child: null",
+      "fix": "child: Text('Hello World')",
+      "audio": "s02_container_error.mp3",
+      "out": {
+        "text": "Hello World",
+        "fs": 24,
+        "fw": "bold",
+        "color": "blue"
+      }
+    },
+    {
+      "callout": "Container widget is very useful",
+      "audio": "s03_container_callout.mp3"
+    },
+    {
+      "move": 2
+    },
+    {
+      "enter": 1
+    },
+    {
+      "wait": 1
+    },
+    {
+      "type": "method",
+      "audio": "s04_container_method.mp3"
+    },
+    {
+      "error": "width: null",
+      "fix": "width: 200",
+      "audio": "s05_container_error_width.mp3",
+      "out": {
+        "text": "Width: 200",
+        "fs": 18,
+        "fw": "normal",
+        "color": "red"
+      }
+    },
+    {
+      "callout": "You can customize the container",
+      "audio": "s06_container_callout.mp3"
+    }
+  ]
+}
