@@ -106,3 +106,26 @@ export function stepDurationMs(step: StepType): number {
     default:          return 0;
   }
 }
+// ── Default Fallback Lesson ──
+export const defaultLesson: LessonData = {
+  lessonId: "default_fallback",
+  intro: {
+    tag: "FLUTTER",
+    number: "00",
+    title: "Loading...",
+    subtitle: "Please provide JSON data",
+    props: []
+  },
+  outro: {
+    badge: "✨",
+    title: "Done",
+    subtitle: "flutter.dev"
+  },
+  initialPreview: {
+    style: { width: "100%", height: "100%", background: "#0a0e14" }
+  },
+  script: [
+    { a: "wait", ms: 1000 } // خطوة وهمية عشان مايضربش Error
+  ]
+};
+  
