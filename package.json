@@ -1,23 +1,24 @@
 {
   "name": "flutter-lesson-remotion",
   "version": "1.0.0",
-  "description": "Flutter Text Widget educational video - Remotion",
+  "description": "Remotion project for generating Flutter tutorial Instagram Reels (FlutterByMousa)",
   "scripts": {
-    "start": "remotion studio",
-    "build": "remotion render",
-    "render": "remotion render FlutterLesson out/flutter-text-widget.mp4"
+    "start":  "remotion studio",
+    "build":  "remotion render FlutterLesson out/lesson_01.mp4",
+    "render": "remotion render FlutterLesson"
   },
   "dependencies": {
-    "@remotion/cli": "^4.0.0",
-    "remotion": "^4.0.0",
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0"
+    "@remotion/cli":    "4.0.257",
+    "remotion":         "4.0.257",
+    "react":            "18.3.4",
+    "react-dom":        "18.3.4"
   },
   "devDependencies": {
-    "@types/react": "^18.0.0",
-    "typescript": "^5.0.0"
+    "@types/react":     "18.3.4",
+    "@types/react-dom": "18.3.4",
+    "typescript":       "5.4.5"
   },
   "remotion": {
-    "entrypoint": "src/index.ts"
+    "entryPoint": "src/index.ts"
   }
 }

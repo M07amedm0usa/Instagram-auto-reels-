@@ -1,105 +1,135 @@
-# Flutter Text Widget — Remotion Project
+# flutter-lesson-remotion
 
-Educational Reels video: **Text Widget** (Arabic, Egyptian dialect)  
-Ported from the HTML IDE simulator prototype.
+**Remotion project for [FlutterByMousa](https://www.instagram.com/flutterbymousa/) Instagram Reels.**
 
-## Structure
+Converts a Flutter IDE animation (typing code, showing errors, live preview) into a
+deterministic, frame-perfect MP4 rendered by [Remotion](https://www.remotion.dev/).
+
+---
+
+## Project Structure
 
 ```
 src/
-├── index.ts                    # Remotion entry point
-├── Root.tsx                    # Registers compositions
-├── script.ts                   # Script steps + timeline builder + state resolver
-├── highlight.ts                # Dart/Flutter syntax tokenizer
-└── compositions/
-│   └── FlutterLesson.tsx       # Main composition (timing orchestrator)
-└── components/
-    ├── IntroScene.tsx           # "Text Widget" intro with staggered animations
-    ├── CodeScene.tsx            # IDE typing view + callouts + preview box
-    ├── OutroScene.tsx           # "جرب الكود بنفسك!" outro
-    └── Particles.tsx            # Floating ambient particles
+├── assets/
+│   └── voiceover.mp3          ← drop your audio here before rendering
+├── data/
+│   └── lesson_01.json         ← lesson data (overridable via --props)
+├── engine/
+│   └── Engine.ts              ← highlightDart() + buildTimeline() (pure TS)
+├── components/
+│   ├── FlutterLesson.tsx      ← main declarative Remotion component
+│   └── style.css              ← all visual styles (verbatim from HTML template)
+├── index.ts                   ← registerRoot()
+└── Root.tsx                   ← <Composition /> registration (1080×1920)
 ```
 
-## Video Specs
+---
 
-| Property | Value |
-|----------|-------|
-| Resolution | 1080 × 1920 (portrait) |
-| FPS | 30 |
-| Duration | ~18–20 seconds (depends on script) |
-| Format | MP4 (H.264) |
-
-## Timeline
-
-| Phase | Start | End |
-|-------|-------|-----|
-| Intro | 0ms | 2800ms |
-| Intro → Code transition | 2800ms | 3000ms |
-| Code typing | 3000ms | ~14000ms |
-| Code → Outro transition | ~14000ms | ~15200ms |
-| Outro | ~15200ms | ~17700ms |
-
-## Setup
+## Quick Start
 
 ```bash
 npm install
+npm start          # opens Remotion Studio at localhost:3000
 ```
 
-## Preview in Remotion Studio
+---
+
+## Render a Single Lesson
 
 ```bash
-npm start
+# Default (uses lesson_01.json)
+npm run build
+
+# Override with a different lesson JSON
+npx remotion render FlutterLesson out/lesson_02.mp4 \
+  --props='{"lesson": {...}, "voiceover": "voiceover.mp3"}'
 ```
 
-Opens at `http://localhost:3000` — use the timeline scrubber to preview any frame.
+---
 
-## Render to MP4
+## n8n Automation Pipeline
+
+The n8n workflow should:
+
+1. **Prepare the lesson JSON** (matching the `LessonData` schema in `Engine.ts`).
+2. **Copy the voiceover MP3** to `src/assets/voiceover.mp3`.
+3. **Run the render** via the Remotion Lambda API or CLI:
 
 ```bash
-npm run render
-# Output: out/flutter-text-widget.mp4
+npx remotion render FlutterLesson out/lesson_XX.mp4 \
+  --props="$(cat path/to/lesson_XX.json | jq '{lesson: ., voiceover: "voiceover.mp3"}')"
 ```
 
-## Fonts
+4. **Upload the MP4** to Instagram via the Graph API.
 
-The project uses Google Fonts:
-- **Cairo** — Arabic text (UI + subtitles)
-- **JetBrains Mono** — Code editor + labels
+---
 
-Add these to your `public/index.html` or configure via `@remotion/google-fonts`:
+## Lesson JSON Schema
 
-```html
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+```jsonc
+{
+  "intro": {
+    "tag":      "FLUTTER BASICS",   // monospace badge top of intro
+    "number":   "01",               // episode number
+    "title":    "<span>Text</span> Widget",  // HTML allowed
+    "subtitle": "ازاي تعرض نص في التطبيق",
+    "props": [
+      { "text": "Text",      "type": "ip-kw" },  // ip-kw | ip-ty | ip-nm | ip-mt
+      { "text": "TextStyle", "type": "ip-ty" }
+    ]
+  },
+  "outro": {
+    "title": "جرب الكود<br/>بنفسك!",  // HTML allowed
+    "doc":   "flutter.dev/docs",
+    "next":  "<span>↩</span><span>الجزء الجاي: Container</span>"
+  },
+  "script": [
+    { "sync":  500 },                  // jump clock to 500 ms (audio sync point)
+    { "type":  "Text()" },             // type characters one by one
+    { "move":  -1 },                   // move cursor N chars
+    { "enter": 2 },                    // newline + N spaces indent
+    { "error": "'wrong'",              // type wrong text (red squiggly)
+      "fix":   "'correct',",           //   then erase and type fix
+      "out":   { "text": "correct" }}, //   update output preview
+    { "callout": "النص المعروض" },     // floating annotation badge
+    { "wait":  400 }                   // pause N ms
+  ]
+}
 ```
 
-Or install the Remotion font package:
-```bash
-npm install @remotion/google-fonts
-```
+### `out` object fields (all optional)
 
-Then in `FlutterLesson.tsx`:
-```ts
-import { loadFont as loadCairo } from "@remotion/google-fonts/Cairo";
-import { loadFont as loadJetBrains } from "@remotion/google-fonts/JetBrainsMono";
-loadCairo();
-loadJetBrains();
-```
+| Field   | Type   | Default    | Description          |
+|---------|--------|------------|----------------------|
+| `text`  | string | `""`       | Preview display text |
+| `fs`    | number | `16`       | font-size in px      |
+| `fw`    | number | `400`      | font-weight          |
+| `color` | string | `#e6edf3`  | CSS color string     |
+| `ls`    | number | `0`        | letter-spacing in em |
 
-## Adding a New Widget Lesson
+---
 
-1. Edit `src/script.ts` → update the `SCRIPT` array with new steps
-2. Edit `src/compositions/FlutterLesson.tsx` → update intro props/title
-3. That's it — timing auto-calculates from the script
+## Video Format
 
-## Color Palette
+| Property       | Value               |
+|----------------|---------------------|
+| Resolution     | 1080 × 1920 (9:16)  |
+| FPS            | 30                  |
+| Audio          | src/assets/voiceover.mp3 |
+| Scale factor   | ≈ 2.84× (phone mock → full canvas) |
 
-| Token | Color |
-|-------|-------|
-| `--accent` | `#00d4ff` |
-| `--accent-alt` | `#7c3aed` |
-| `--accent-warm` | `#f59e0b` |
-| `--keyword` | `#ff7b72` |
-| `--type` | `#79c0ff` |
-| `--string` | `#a5d6ff` |
-| `--method` | `#d2a8ff` |
-| `--number` | `#ffa657` |
+---
+
+## Architecture Notes
+
+- **Engine.ts is a pure function** — no React, no side effects.
+  `buildTimeline()` can be called from the n8n workflow itself to pre-validate
+  a lesson JSON before rendering.
+
+- **`calculateMetadata`** in Root.tsx recomputes `durationInFrames` whenever
+  `--props` changes the script, so you never need to hard-code durations.
+
+- **CSS transitions** in `style.css` are used for the intro stagger. Remotion
+  plays back at exact frame positions so these still look correct; the CSS
+  `transition` properties are purely cosmetic fallbacks for Studio scrubbing.
