@@ -1,25 +1,23 @@
 {
-  "name": "flutter-reel-factory",
-  "version": "3.0.0",
-  "description": "Automated Flutter widget video generator for Instagram Reels — @flutterbymousa",
+  "name": "flutter-lesson-remotion",
+  "version": "1.0.0",
+  "description": "Flutter Text Widget educational video - Remotion",
   "scripts": {
-    "start":   "remotion studio",
-    "preview": "remotion studio",
-    "build":   "remotion render FlutterLesson out/lesson.mp4 --gl=swiftshader",
-    "render":  "remotion render FlutterLesson --gl=swiftshader"
+    "start": "remotion studio",
+    "build": "remotion render",
+    "render": "remotion render FlutterLesson out/flutter-text-widget.mp4"
   },
   "dependencies": {
-    "@remotion/cli": "4.0.230",
-    "remotion":      "4.0.230",
-    "react":         "18.3.1",
-    "react-dom":     "18.3.1"
+    "@remotion/cli": "^4.0.0",
+    "remotion": "^4.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@types/react":     "18.3.1",
-    "@types/react-dom": "18.3.1",
-    "typescript":       "5.5.4"
+    "@types/react": "^18.0.0",
+    "typescript": "^5.0.0"
   },
   "remotion": {
-    "entryPoint": "src/index.ts"
+    "entrypoint": "src/index.ts"
   }
 }
