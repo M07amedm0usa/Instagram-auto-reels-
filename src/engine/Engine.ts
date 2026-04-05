@@ -31,12 +31,27 @@ export interface TimelineFrame {
 // ── Script step DSL types ────────────────────────────────────────────────────
 
 export interface StepSync    { sync: number }
-export interface StepType    { type: string; out?: Partial<OutputState> }
-export interface StepError   { error: string; fix: string; out?: Partial<OutputState> }
-export interface StepCallout { callout: string }
+export interface StepType    { type: string; out?: Partial<OutputState>; audio?: string }
+export interface StepError   { error: string; fix: string; out?: Partial<OutputState>; audio?: string }
+export interface StepCallout { callout: string; audio?: string }
 export interface StepMove    { move: number }
 export interface StepEnter   { enter: number }
 export interface StepWait    { wait: number }
+
+/**
+ * A resolved audio cue: the mp3 filename + exact ms offset from
+ * the very beginning of the video (includes the intro offset).
+ * Built by buildTimeline(), consumed by FlutterLesson as <Audio startFrom>.
+ */
+export interface AudioCue {
+  /** filename inside src/assets/, e.g. "step_01.mp3" */
+  file: string;
+  /**
+   * Absolute video time in ms when this clip must start.
+   * = codeStartOffsetMs + scriptTime
+   */
+  startMs: number;
+}
 
 export type ScriptStep =
   | StepSync
@@ -71,6 +86,8 @@ export interface LessonData {
 
 export interface TimelineResult {
   timeline: TimelineFrame[];
+  /** All audio cues extracted from script steps, ready for <Audio startFrom> */
+  audioCues: AudioCue[];
   totalScriptDuration: number;
 }
 
@@ -139,7 +156,8 @@ export function highlightDart(code: string): string {
  * cache the result.
  */
 export function buildTimeline(lesson: LessonData): TimelineResult {
-  const timeline: TimelineFrame[] = [];
+  const timeline:  TimelineFrame[] = [];
+  const audioCues: AudioCue[]      = [];
 
   let currentTime = 0;
   let code        = '';
@@ -157,6 +175,20 @@ export function buildTimeline(lesson: LessonData): TimelineResult {
       output: { ...output },
     });
 
+  /**
+   * Register an audio cue.
+   * startMs = CODE_START_OFFSET (codeIn + 400ms fade) + currentTime
+   * The 400ms is the code-scene fade-in delay applied in FlutterLesson.tsx.
+   * We bake the full offset here so the component just passes startMs directly.
+   *
+   * NOTE: computeSceneTiming uses codeIn=2800. The scriptTime starts after
+   * an additional 400ms fade (see CodeScene: scriptTime = t - codeIn - 400).
+   * So absolute offset = 2800 + 400 = 3200 ms.
+   */
+  const CODE_START_OFFSET_MS = 3200;
+  const addAudio = (file: string) =>
+    audioCues.push({ file, startMs: CODE_START_OFFSET_MS + currentTime });
+
   for (const step of lesson.script) {
 
     // ── sync ──────────────────────────────────────────────────────────────────
@@ -167,6 +199,9 @@ export function buildTimeline(lesson: LessonData): TimelineResult {
 
     // ── type ──────────────────────────────────────────────────────────────────
     if (isType(step)) {
+      // Register audio BEFORE advancing currentTime so the clip starts
+      // exactly when the first character of this step appears on screen.
+      if (step.audio) addAudio(step.audio);
       for (const char of step.type) {
         code = code.slice(0, cursor) + char + code.slice(cursor);
         cursor++;
@@ -182,6 +217,8 @@ export function buildTimeline(lesson: LessonData): TimelineResult {
 
     // ── error / fix ───────────────────────────────────────────────────────────
     if (isError(step)) {
+      // Register audio at the moment the wrong typing begins
+      if (step.audio) addAudio(step.audio);
       // Type the wrong characters with the error marker
       let errorStr = '';
       for (const char of step.error) {
@@ -194,7 +231,7 @@ export function buildTimeline(lesson: LessonData): TimelineResult {
         timeline.push({
           time: currentTime,
           code: tempCode,
-          cursor: cursor + 17 + errorStr.length,
+          cursor: cursor + 13 + errorStr.length,
           callouts: [...callouts],
           output: { ...output },
         });
@@ -209,7 +246,7 @@ export function buildTimeline(lesson: LessonData): TimelineResult {
       timeline.push({
         time: currentTime,
         code: fullErrCode,
-        cursor: cursor + 17 + step.error.length,
+        cursor: cursor + 13 + step.error.length,
         callouts: [...callouts],
         output: { ...output },
       });
@@ -225,7 +262,7 @@ export function buildTimeline(lesson: LessonData): TimelineResult {
         timeline.push({
           time: currentTime,
           code: tempCode,
-          cursor: cursor + (errorStr.length > 0 ? 17 + errorStr.length : 0),
+          cursor: cursor + (errorStr.length > 0 ? 13 + errorStr.length : 0),
           callouts: [...callouts],
           output: { ...output },
         });
@@ -248,6 +285,7 @@ export function buildTimeline(lesson: LessonData): TimelineResult {
 
     // ── callout ───────────────────────────────────────────────────────────────
     if (isCallout(step)) {
+      if (step.audio) addAudio(step.audio);
       const lineIndex = code.slice(0, cursor).split('\n').length - 1;
       callouts = [
         ...callouts,
@@ -289,7 +327,7 @@ export function buildTimeline(lesson: LessonData): TimelineResult {
     }
   }
 
-  return { timeline, totalScriptDuration: currentTime };
+  return { timeline, audioCues, totalScriptDuration: currentTime };
 }
 
 // ── 3. Scene Timing Helper ────────────────────────────────────────────────────
