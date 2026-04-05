@@ -7,7 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useMemo } from 'react';
-import { Composition, useCurrentFrame, useVideoConfig } from 'remotion';
+import { Composition } from 'remotion';
 import { FlutterLesson, type FlutterLessonProps } from './components/FlutterLesson';
 
 import {
