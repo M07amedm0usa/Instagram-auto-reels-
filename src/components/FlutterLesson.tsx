@@ -4,7 +4,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useMemo } from 'react';
-import { useCurrentFrame, useVideoConfig, Audio, staticFile } from 'remotion';
+import { useCurrentFrame, useVideoConfig, Audio, Sequence, staticFile } from 'remotion';
 import './style.css';
 
 import {
@@ -18,6 +18,7 @@ import {
   type LessonData,
   type TimelineFrame,
   type CalloutEntry,
+  type AudioCue,
 } from '../engine/Engine';
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -36,11 +37,6 @@ const LINE_HEIGHT_PX = 10.5 * 2.2; // matches CSS: font-size 10.5px × line-heig
 const INTRO_STAGGER_MS = [150, 300, 450, 700, 900, 1100] as const;
 
 // ── Sub-components ────────────────────────────────────────────────────────────
-
-/** Blinking typing cursor — rendered inline inside code HTML. */
-const TypingCursor: React.FC = () => (
-  <span className="typing-cursor" />
-);
 
 /** A single highlighted code line with optional active (focus) class. */
 const CodeLine: React.FC<{ html: string; active: boolean }> = ({ html, active }) => (
@@ -258,7 +254,7 @@ export const FlutterLesson: React.FC<FlutterLessonProps> = ({
   const t = frameToMs(frame, fps);
 
   // Build timeline once (memoised — lesson data never changes at runtime)
-  const { timeline, totalScriptDuration } = useMemo(
+  const { timeline, audioCues, totalScriptDuration } = useMemo(
     () => buildTimeline(lesson),
     [lesson],
   );
@@ -271,10 +267,23 @@ export const FlutterLesson: React.FC<FlutterLessonProps> = ({
 
   return (
     <div className="phone-outer">
-      {/* Voiceover audio — Remotion will sync this with the frame clock */}
-      {voiceover && (
-        <Audio src={staticFile(voiceover)} />
-      )}
+
+      {/*
+        Audio tracks — two layers:
+        1. Optional single voiceover MP3 that covers the whole video (legacy mode).
+        2. Per-step cues from audioCues — each wrapped in a Remotion <Sequence>
+           so it starts at exactly the right millisecond.
+      */}
+      {voiceover && <Audio src={staticFile(voiceover)} />}
+
+      {audioCues.map((cue, i) => {
+        const fromFrame = Math.round((cue.startMs / 1000) * fps);
+        return (
+          <Sequence key={`${cue.file}-${i}`} from={fromFrame}>
+            <Audio src={staticFile(cue.file)} />
+          </Sequence>
+        );
+      })}
 
       {/* Notch */}
       <div className="notch">
